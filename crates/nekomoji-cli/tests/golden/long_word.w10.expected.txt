@@ -1,0 +1,13 @@
+# 幅 10 / 禁則 standard / ぶら下げ on / 20 文字/秒
+[ページ 1/1]
+   +--------------------+
+ 1 | URL: https://example.
+ 2 | com/nekomoji
+ 3 | Supercalifragilistic
+ 4 | expialidocious!
+ 5 | あいうえお
+ 6 | ABCDEFGHIJKLMNOPかき
+ 7 | くけこ
+   +--------------------+
+    5.00s   94文字目の後  終了
+  所要 5.00s / 94 文字

@@ -1,0 +1,42 @@
+[align center][size 1.4][b]迷宮の手帖[/b][/size][/align]
+[align center]― nekomoji マークアップの見本 ―[/align]
+前半は通常モード、後半は猫モードで、それぞれのマークアップの動きを確かめるための文章です。
+viewer は最初から猫モードです。前半は N キー（または --no-neko）で猫を切ってから見てください。CLI では --neko で猫モードになります。[p]
+【通常モード・文字】ルビ・色・大きさ・太字・変数・エスケープを試します。
+[ruby めいきゅう]迷宮[/ruby]の奥で、[color red]何か[/color]が動いた。
+[size 0.8]小さな足音[/size]と、[size 1.5]大きな影[/size]。[b]太字の警告[/b]。
+……そこにいるのは、[var player_name]か。
+壁の刻印には[[迷宮]]と{鍵}の文字。[p]
+【通常モード・文字送り】速さ・待機・クリック待ち・文字送りの音を試します。
+[speed 0.5]ゆっくり、ゆっくりと……[/speed][speed 3]急に早口でまくしたてる！[/speed]
+ここで一息。[wait 1]……一秒待ちました。
+ここでクリックを待ちます。[l]続きは同じページに出ます。
+[blip pi]ピポパと話す声。[/blip][blip po]こちらは別の声。[/blip][blip off]ここは鳴りません。[/blip][p]
+【通常モード・動き】揺れ・波・フェードを試します。
+[shake]揺れ続ける床[/shake]と、[shake 2 1.5]――誰だっ！[/shake]（1.5秒で止まる）
+[wave]ゆらゆら漂う霧[/wave]と、[wave 2 2]寄せては返す波[/wave]（2秒で止まる）
+[fade]ふっと現れる文字[/fade]と、[fade 1.5]ゆっくり現れる文字[/fade]。[p]
+【通常モード・光と輪郭】発光・縁取り・影を試します。
+[color #66ccff][glow]ふわりと灯る光[/glow][/color]、[color #ffcc66][glow breathe 1.5 2]呼吸する灯り[/glow][/color]、[color #ff66cc][glow flicker]瞬くネオン[/glow][/color]。
+[outline]黒い縁取り[/outline]、[color white][outline #3366ff 0.15]青く太い縁取り[/outline][/color]。
+[shadow]右下の影[/shadow]、[shadow #888888 -0.1 -0.1]左上の影[/shadow]、[outline][shadow]縁取りと影[/shadow][/outline]。[p]
+【通常モード・記号と線】上付き・下付き・取り消し線・下線・圏点を試します。
+水はH[sub]2[/sub]O、広さは100m[sup]2[/sup]。
+[s]この道は行き止まり[/s]、[u]地図の印を信じよ[/u]。
+[em]ここ[/em]が出口、[em ●]ここ[/em]は罠。[p]
+【通常モード・組み方】縦中横・揃え・アイコン・名前付きの範囲を試します（縦中横は縦書きで確かめてください）。
+地下[tcy]12[/tcy]階で[tcy]!?[/tcy]と声を上げた。
+[align center]― 中央揃えの立て札 ―[/align]
+[align end]行末揃えの署名[/align]
+[icon key]を拾った。[icon btn_a 1.5]で扉を開ける。
+[mark kagi]古い鍵[/mark]は[mark tobira]北の扉[/mark]に合う。[p]
+【通常モード・出来事】ボイス・効果音・利用者定義のイベント・改行を試します。
+[voice v_012]「よく来たな、[var player_name]。」
+[se door_open]扉の開く音がした。[event shake_screen 0.5]画面が揺れる。
+一行の途中で[br]改行します。[p]
+【猫モード・ちょっかい】ここからは猫モードで見てください（viewer では N キーで戻す、CLI では --neko）。見えない猫が文字の上を歩き回り、文字送りの途中でそばの文字を猫パンチで飛ばします。
+[neko hop]跳ねるように現れる文字[/neko]と、[neko hop 2][wave]大きく跳ねる[var player_name][/wave][/neko]。
+飛ばされた文字は、数秒で元の位置にふわっと戻ってきます。[p]
+【猫モード・入力待ち】ここでクリックを待ちます。[l]待っているあいだ、猫は表示済みの文字の上を歩くだけです。
+ページの終わりでは、最後の文字を押して落としたり、ときどきページの文字をまとめて散らしたりします。入力待ちのカーソルは肉球です。[p]
+【おわりに】動きの強さ（viewer では O キー、CLI では --motion reduced か off）を変えると、揺れ・波・発光・猫のちょっかいが控えめになります。前のページへ戻って見比べてください。

@@ -1,0 +1,22 @@
+[package]
+name = "nekomoji-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+# cargo-fuzz 用(nightly が要る)。ワークスペースには入れない
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+nekomoji = { path = "../crates/nekomoji" }
+
+[[bin]]
+name = "pipeline"
+path = "fuzz_targets/pipeline.rs"
+test = false
+doc = false
+bench = false

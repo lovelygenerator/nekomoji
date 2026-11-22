@@ -1,0 +1,4 @@
+[se door]扉が開いた。[wait 1]
+「こんばんは」[voice v_001][p]
+[event bg night]夜が来た。[p]
+おしまい。

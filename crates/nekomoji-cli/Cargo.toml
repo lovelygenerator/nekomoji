@@ -1,0 +1,27 @@
+[package]
+name = "nekomoji-cli"
+description = "CLI and REPL for checking nekomoji layout and reveal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# subset 機能の fontcull(edition 2024)に合わせる
+rust-version = "1.87"
+publish = false
+
+[[bin]]
+name = "nekomoji"
+path = "src/main.rs"
+doc = false
+
+[features]
+default = ["subset"]
+# フォントのサブセット化(nekomoji subset)。外しても log/check/repl は動く
+subset = ["dep:fontcull", "dep:fontdue", "dep:allsorts"]
+
+[dependencies]
+nekomoji = { workspace = true }
+fontcull = { version = "2", default-features = false, optional = true }
+fontdue = { version = "0.9", optional = true }
+# CFF 形式(Noto Sans CJK など)のサブセット化用。zlib は純 Rust 側を使う
+allsorts = { version = "0.17", default-features = false, features = ["flate2_rust"], optional = true }

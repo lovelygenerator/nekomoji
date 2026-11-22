@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>nekomoji web demo</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #12121a; color: #e6e6ee; }
+    body {
+      display: grid; grid-template-columns: 1fr 1fr;
+      font: 14px/1.5 system-ui, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+    }
+    /* 左: ツールバー・テキスト・メッセージ */
+    #left { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid #2c2c3a; }
+    #toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; background: #181824; border-bottom: 1px solid #2c2c3a; }
+    .btn {
+      display: inline-block; padding: 6px 12px; border: 1px solid #3a3a4e; border-radius: 6px;
+      background: #232334; color: inherit; font: inherit; cursor: pointer; user-select: none;
+    }
+    .btn:hover { background: #2c2c42; }
+    .btn:focus-within, .btn:focus-visible { outline: 2px solid #7aa2ff; outline-offset: 1px; }
+    #preview { background: #3b5bdb; border-color: #3b5bdb; font-weight: 600; margin-left: auto; }
+    #preview:hover { background: #4c6ef5; }
+    .btn input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    #font-label { flex-basis: 100%; font-size: 12px; color: #9a9ab0; }
+    #src {
+      flex: 1; min-height: 0; resize: none; box-sizing: border-box; margin: 0; padding: 12px;
+      border: 0; outline: 0; background: #12121a; color: inherit;
+      font: 14px/1.7 ui-monospace, "SFMono-Regular", Consolas, "Noto Sans Mono CJK JP", monospace;
+      tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere;
+    }
+    #messages { max-height: 30%; overflow: auto; font-size: 13px; }
+    #messages:empty { display: none; }
+    #messages div { padding: 4px 12px; border-top: 1px solid #2c2c3a; overflow-wrap: anywhere; }
+    #messages .error { background: #3a1820; color: #ffb3c0; }
+    #messages .warn { background: #3a3318; color: #ffe08a; }
+    #messages .info { background: #182a3a; color: #a8d4ff; }
+    /* 右: 結果(キャンバスは枠いっぱいに。大きさは枠が決める) */
+    #right { position: relative; min-width: 0; min-height: 0; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+    @media (max-width: 700px) {
+      body { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+      #left { border-right: 0; border-bottom: 1px solid #2c2c3a; }
+    }
+  </style>
+  <!-- font.ttf は Zen Maru Gothic(SIL OFL 1.1、OFL.txt)を demo.neko の文字だけに絞ったもの。crate には含めない -->
+  <link rel="preload" as="fetch" href="font.ttf" crossorigin>
+  <link data-trunk rel="copy-file" href="font.ttf">
+  <link data-trunk rel="copy-file" href="OFL.txt">
+  <link data-trunk rel="rust" data-bin="nekomoji-web-demo">
+</head>
+<body>
+  <section id="left">
+    <div id="toolbar">
+      <label class="btn">スクリプトを開く<input id="open-script" type="file" accept=".neko,.txt,text/plain"></label>
+      <label class="btn">フォントを開く<input id="open-font" type="file" accept=".ttf,.otf,font/ttf,font/otf"></label>
+      <button id="preview" class="btn" type="button" title="Ctrl/⌘ + Enter">プレビュー</button>
+      <div id="font-label">フォント: <span id="font-name"></span></div>
+    </div>
+    <textarea id="src" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="nekomoji スクリプト"></textarea>
+    <div id="messages" role="status" aria-live="polite"></div>
+  </section>
+  <section id="right">
+    <canvas id="nekomoji"></canvas>
+  </section>
+</body>
+</html>

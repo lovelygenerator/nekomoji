@@ -1,0 +1,27 @@
+[package]
+name = "nekomoji-web-demo"
+description = "nekomoji-wgpu を WASM でブラウザに出す確認用デモ・エディタ(WebGPU 優先・WebGL2 フォールバック)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version = "1.87"
+publish = false
+
+[dependencies]
+nekomoji = { workspace = true }
+nekomoji-wgpu = { path = "../../crates/nekomoji-wgpu" }
+
+# ブラウザ向けの依存は wasm32 のときだけ(ネイティブの cargo check を壊さない)
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wgpu = { version = "30", features = ["webgl"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1"
+web-time = "1"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+  "Window", "Document", "Element", "HtmlCanvasElement", "Response",
+  "MouseEvent", "KeyboardEvent", "EventTarget", "Location", "console",
+  # エディタ画面(左のテキスト・ファイルを開く)
+  "Node", "HtmlElement", "HtmlTextAreaElement", "HtmlInputElement", "FileList", "File", "Blob",
+] }

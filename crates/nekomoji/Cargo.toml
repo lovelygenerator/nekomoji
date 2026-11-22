@@ -1,0 +1,15 @@
+[package]
+name = "nekomoji"
+description = "Japanese text layout and reveal effects for games (ruby, kinsoku, typewriter)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/nekomoji"
+readme = "README.md"
+keywords = ["japanese", "furigana", "typesetting", "gamedev", "text"]
+categories = ["text-processing", "game-development", "internationalization"]
+
+[dependencies]

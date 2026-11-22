@@ -1,0 +1,10 @@
+# 改行はどの OS でも LF にそろえる(Windows の core.autocrlf で CRLF になると
+# ゴールデンテストの期待値と出力が食い違うため)
+* text=auto eol=lf
+
+# バイナリ
+*.ttf binary
+*.otf binary
+*.ttc binary
+*.png binary
+*.wasm binary

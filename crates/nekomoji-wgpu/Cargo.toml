@@ -1,0 +1,22 @@
+[package]
+name = "nekomoji-wgpu"
+description = "wgpu rendering adapter for nekomoji (dynamic glyph atlas, instanced quads)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# wgpu 30 の要求に合わせる(コアの MSRV 1.75 とは別)
+rust-version = "1.87"
+publish = false
+
+[dependencies]
+nekomoji = { workspace = true }
+fontdue = "0.9"
+wgpu = "30"
+bytemuck = { version = "1", features = ["derive"] }
+# 縦書きの字形の置き換え(GSUB の vert/vrt2)と仮名の詰め(GPOS の palt/vpal)を読むだけに使う。fontdue も同じ版に依存している
+ttf-parser = { version = "0.25", default-features = false, features = ["std", "opentype-layout"] }
+
+[dev-dependencies]
+winit = "0.30"
+pollster = "1"

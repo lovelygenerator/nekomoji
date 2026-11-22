@@ -1,0 +1,8 @@
+target/
+
+# examples が取ってくるフォント(再配布しない)
+/assets/fonts/*
+!/assets/fonts/README.md
+
+# trunk build の出力
+/examples/web-demo/dist/
