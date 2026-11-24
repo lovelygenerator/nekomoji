@@ -30,6 +30,28 @@ pub fn surface_format(formats: &[wgpu::TextureFormat]) -> Option<wgpu::TextureFo
         .or_else(|| formats.first().copied())
 }
 
+/// アトラスの一辺の既定(px)。[`Atlas::new`]・[`Renderer::new`] に同じ値を渡す。
+/// 足りなくなれば [`Atlas::make_room`] が大きくするので、最初は小さくてよい。
+pub const DEFAULT_ATLAS_SIZE: u32 = 1024;
+
+/// サーフェスの設定を作る。大きさ `size`(幅, 高さ。0 は 1 にする)と、色が明るくならない形式
+/// ([`surface_format`])を選ぶ。そのまま `surface.configure(&device, &config)` に渡せる。
+/// サーフェスがこのアダプタで使えなければ `None`。
+///
+/// 窓の大きさが変わったら、同じ関数で作り直して `configure` する。
+/// [`Renderer::new`] には `config.format` を渡す。
+pub fn surface_config(
+    surface: &wgpu::Surface<'_>,
+    adapter: &wgpu::Adapter,
+    size: [u32; 2],
+) -> Option<wgpu::SurfaceConfiguration> {
+    let mut config = surface.get_default_config(adapter, size[0].max(1), size[1].max(1))?;
+    if let Some(f) = surface_format(&surface.get_capabilities(adapter).formats) {
+        config.format = f;
+    }
+    Some(config)
+}
+
 /// wgpu の描画パイプライン。[`Renderer::prepare`] で四角形とアトラスを送り、[`Renderer::draw`] で描く。
 pub struct Renderer {
     pipeline: wgpu::RenderPipeline,
@@ -38,6 +60,9 @@ pub struct Renderer {
     sampler: wgpu::Sampler,
     texture: wgpu::Texture,
     atlas_size: u32,
+    /// 文中のアイコンの絵(RGBA)。絵を登録するまでは 1px の空のテクスチャ
+    icon_texture: wgpu::Texture,
+    icon_size: u32,
     uniform: wgpu::Buffer,
     instances: wgpu::Buffer,
     capacity: usize,
@@ -51,6 +76,9 @@ impl Renderer {
     pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, atlas_size: u32) -> Self {
         let texture = Self::atlas_texture(device, atlas_size);
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let icon_size = 1;
+        let icon_texture = Self::icon_texture(device, icon_size);
+        let icon_view = icon_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
@@ -90,9 +118,19 @@ impl Renderer {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
-        let bind_group = Self::bind_group(device, &layout, &uniform, &view, &sampler);
+        let bind_group = Self::bind_group(device, &layout, &uniform, &view, &icon_view, &sampler);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("nekomoji shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -144,6 +182,8 @@ impl Renderer {
             sampler,
             texture,
             atlas_size,
+            icon_texture,
+            icon_size,
             uniform,
             instances,
             capacity,
@@ -174,11 +214,29 @@ impl Renderer {
         })
     }
 
+    fn icon_texture(device: &wgpu::Device, size: u32) -> wgpu::Texture {
+        device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("nekomoji icons"),
+            size: wgpu::Extent3d {
+                width: size,
+                height: size,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        })
+    }
+
     fn bind_group(
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
         uniform: &wgpu::Buffer,
         atlas: &wgpu::TextureView,
+        icons: &wgpu::TextureView,
         sampler: &wgpu::Sampler,
     ) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -197,6 +255,10 @@ impl Renderer {
                     binding: 2,
                     resource: wgpu::BindingResource::Sampler(sampler),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(icons),
+                },
             ],
         })
     }
@@ -210,9 +272,11 @@ impl Renderer {
         })
     }
 
-    /// アトラスの新しい文字を転送し、四角形を頂点バッファへ書く。描画の前に毎フレーム呼ぶ。
+    /// アトラスの新しい文字と、新しく登録したアイコンの絵を転送し、四角形を頂点バッファへ書く。
+    /// 描画の前に毎フレーム呼ぶ。
     ///
-    /// アトラスの大きさがテクスチャと違えば、テクスチャを作り直してから転送する。
+    /// アトラスの大きさがテクスチャと違えば、テクスチャを作り直してから転送する
+    /// (アイコンのアトラスも同じ。絵を登録していないあいだは 1px の空のテクスチャ)。
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
@@ -221,17 +285,30 @@ impl Renderer {
         quads: &[Quad],
         screen: [f32; 2],
     ) {
+        let icon_wanted = atlas.icons().size().max(1);
+        let rebuilt = atlas.size() != self.atlas_size || icon_wanted != self.icon_size;
         if atlas.size() != self.atlas_size {
             self.atlas_size = atlas.size();
             self.texture = Self::atlas_texture(device, self.atlas_size);
+        }
+        if icon_wanted != self.icon_size {
+            // 大きさが変わると、絵はすべて置き直されて転送待ちになっている
+            self.icon_size = icon_wanted;
+            self.icon_texture = Self::icon_texture(device, self.icon_size);
+        }
+        if rebuilt {
             let view = self
                 .texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
+            let icon_view = self
+                .icon_texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
             self.bind_group = Self::bind_group(
                 device,
                 &self.bind_layout,
                 &self.uniform,
                 &view,
+                &icon_view,
                 &self.sampler,
             );
         }
@@ -251,6 +328,31 @@ impl Renderer {
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(u.w),
+                    rows_per_image: Some(u.h),
+                },
+                wgpu::Extent3d {
+                    width: u.w,
+                    height: u.h,
+                    depth_or_array_layers: 1,
+                },
+            );
+        }
+        for u in atlas.icons_mut().take_uploads() {
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.icon_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d {
+                        x: u.x,
+                        y: u.y,
+                        z: 0,
+                    },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &u.data,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(u.w * 4),
                     rows_per_image: Some(u.h),
                 },
                 wgpu::Extent3d {

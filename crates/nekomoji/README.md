@@ -105,7 +105,7 @@ Rust 1.75(リポジトリの CLI・wgpu の描画アダプタ・例は 1.87 以�
 
 ## ライセンス
 
-次のどちらかを選べます。
+次のどちらかを選べます(crates.io では相対リンクが切れるので、URL で書いています)。
 
-- Apache License, Version 2.0([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license([LICENSE-MIT](LICENSE-MIT))
+- Apache License, Version 2.0([LICENSE-APACHE](https://github.com/lovelygenerator/nekomoji/blob/main/crates/nekomoji/LICENSE-APACHE))
+- MIT license([LICENSE-MIT](https://github.com/lovelygenerator/nekomoji/blob/main/crates/nekomoji/LICENSE-MIT))

@@ -2,7 +2,7 @@
 //! ネイティブでテストできるように、`web` モジュールから分けてある。
 
 use nekomoji::{Layout, ParseError};
-use nekomoji_wgpu::FontSet;
+use nekomoji_wgpu::{FontSet, IconSet};
 
 /// 解析エラーを画面に出す1行ずつの日本語にする(行・桁は 1 始まり)。
 pub fn format_errors(errors: &[ParseError]) -> Vec<String> {
@@ -12,14 +12,33 @@ pub fn format_errors(errors: &[ParseError]) -> Vec<String> {
         .collect()
 }
 
-/// 値の無い変数と、フォントの字形に関する注意を日本語で返す。
+/// 値の無い変数と、絵を登録していないアイコン・フォントの字形に関する注意を日本語で返す。
 /// 字形が無い文字(代わりの文字も無く、豆腐になる)と、代わりのフォントで描く文字を分ける。
 /// 画面の文字として読むので、先頭は注意の見出し。
-pub fn warnings(layout: &Layout, font: &FontSet) -> Vec<String> {
+pub fn warnings(layout: &Layout, font: &FontSet, icons: &IconSet) -> Vec<String> {
     let mut out = Vec::new();
     for name in &layout.missing_vars {
         out.push(format!(
             "変数 [var {name}] に値がないので、書いたまま表示します"
+        ));
+    }
+    // 絵を登録していないアイコンは何も描かれない(出てきた順に1度ずつ)
+    let mut unknown: Vec<&str> = Vec::new();
+    for id in layout
+        .pages
+        .iter()
+        .flat_map(|p| p.glyphs.iter())
+        .filter_map(|g| g.icon.as_deref())
+    {
+        if !icons.contains(id) && !unknown.contains(&id) {
+            unknown.push(id);
+        }
+    }
+    if !unknown.is_empty() {
+        out.push(format!(
+            "絵が無いアイコン(何も描きません): {}(このデモで使えるのは {})",
+            unknown.join("・"),
+            crate::icons::ids().collect::<Vec<_>>().join("・")
         ));
     }
     let mut missing: Vec<char> = Vec::new();
@@ -70,6 +89,12 @@ mod tests {
         FontSet::from_bytes(FONT, 0, 36.0).expect("font.ttf を読める")
     }
 
+    fn icons() -> IconSet {
+        let mut atlas = nekomoji_wgpu::atlas::Atlas::new(64);
+        crate::icons::register(&mut atlas).unwrap();
+        std::mem::take(atlas.icons_mut())
+    }
+
     fn layout(src: &str) -> Layout {
         let script = parse_all(src).expect("解析できる");
         Layout::build(&script, &font(), &LayoutOptions::default(), &Vars::new())
@@ -94,12 +119,15 @@ mod tests {
     #[test]
     fn デモの文字だけなら注意は出ない() {
         let src = include_str!("../demo.neko").trim_end();
-        assert_eq!(warnings(&layout(src), &font()), Vec::<String>::new());
+        assert_eq!(
+            warnings(&layout(src), &font(), &icons()),
+            Vec::<String>::new()
+        );
     }
 
     #[test]
     fn サブセットに無い文字は注意に並ぶ() {
-        let w = warnings(&layout("龍と鸞"), &font());
+        let w = warnings(&layout("龍と鸞"), &font(), &icons());
         assert_eq!(w.len(), 1, "{w:?}");
         assert!(w[0].contains("フォントに字形が無い文字"), "{}", w[0]);
         assert!(w[0].contains('龍') && w[0].contains('鸞'), "{}", w[0]);
@@ -107,7 +135,7 @@ mod tests {
 
     #[test]
     fn ルビの読みの文字も調べる() {
-        let w = warnings(&layout("[ruby ゐ]迷[/ruby]"), &font());
+        let w = warnings(&layout("[ruby ゐ]迷[/ruby]"), &font(), &icons());
         assert!(
             w.iter().any(|m| m.contains('ゐ')),
             "ルビの読みの欠けを知らせる: {w:?}"
@@ -116,7 +144,25 @@ mod tests {
 
     #[test]
     fn 値の無い変数は注意に出る() {
-        let w = warnings(&layout("[var player_name]"), &font());
+        let w = warnings(&layout("[var player_name]"), &font(), &icons());
         assert!(w.iter().any(|m| m.contains("[var player_name]")), "{w:?}");
+    }
+
+    #[test]
+    fn 絵を登録していないアイコンは一度ずつ注意に並ぶ() {
+        let w = warnings(
+            &layout("[icon ok][icon nope][icon nope][icon x]"),
+            &font(),
+            &icons(),
+        );
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert!(w[0].contains("nope・x"), "{}", w[0]);
+        assert!(
+            w[0].contains("ok・heart"),
+            "使えるアイコンを知らせる: {}",
+            w[0]
+        );
+        // 登録してあるアイコンだけなら注意は出ない
+        assert!(warnings(&layout("[icon ok][icon heart]"), &font(), &icons()).is_empty());
     }
 }

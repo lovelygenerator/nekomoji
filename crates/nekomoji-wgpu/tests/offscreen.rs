@@ -150,3 +150,59 @@ fn 入力待ちの肉球のカーソルを描ける() {
     let lit = data.chunks(4).filter(|p| p[3] > 100).count();
     assert!(lit > 30, "肉球が描かれていない: {lit}");
 }
+
+#[test]
+fn アイコンの絵が色のまま画面に出る() {
+    let Some(font) = font() else { return };
+    let Some((device, queue)) = gpu() else { return };
+    let script = parse("[icon red 2]").unwrap();
+    let layout = Layout::build(&script, &font, &LayoutOptions::default(), &Vars::new());
+    let mut reveal = Reveal::new(&layout, RevealOptions::default());
+    reveal.advance(1.0);
+    let mut atlas = Atlas::new(256);
+    // 赤と、半分透明な青の2枚
+    let red: Vec<u8> = [255, 0, 0, 255].repeat(8 * 8);
+    atlas.icons_mut().insert("red", 8, 8, &red).unwrap();
+    let place = Placement::default().origin([16.0, 16.0]);
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    assert_eq!(built.quads.len(), 1);
+    let mut renderer = Renderer::new(&device, wgpu::TextureFormat::Rgba8Unorm, 256);
+    let data = draw(&device, &queue, &mut renderer, &mut atlas, &built.quads);
+    // 枠は幅 2 の 64×32 px で、正方形の絵は 32×32 px、枠の中央(x = 32..64)に出る
+    let at = |x: u32, y: u32| &data[((y * W + x) * 4) as usize..][..4];
+    assert_eq!(at(48, 32), &[255, 0, 0, 255], "絵の中央が赤でない");
+    assert_eq!(at(20, 32), &[0, 0, 0, 255], "絵の外が塗られている");
+    assert_eq!(at(100, 100), &[0, 0, 0, 255]);
+}
+
+#[test]
+fn アイコンを後から登録するとテクスチャが大きくなって全部出る() {
+    let Some(font) = font() else { return };
+    let Some((device, queue)) = gpu() else { return };
+    let script = parse("[icon a][icon b]").unwrap();
+    let layout = Layout::build(&script, &font, &LayoutOptions::default(), &Vars::new());
+    let mut reveal = Reveal::new(&layout, RevealOptions::default());
+    reveal.advance(1.0);
+    let mut atlas = Atlas::new(256);
+    let mut renderer = Renderer::new(&device, wgpu::TextureFormat::Rgba8Unorm, 256);
+    let place = Placement::default().origin([0.0, 0.0]);
+    // 1枚目を登録して描き、その後に2枚目を登録して(置き直しが起きても)両方が出る
+    atlas
+        .icons_mut()
+        .insert("a", 4, 4, &[255, 0, 0, 255].repeat(16))
+        .unwrap();
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    let _ = draw(&device, &queue, &mut renderer, &mut atlas, &built.quads);
+    atlas
+        .icons_mut()
+        .insert("b", 300, 300, &[0, 255, 0, 255].repeat(300 * 300))
+        .unwrap();
+    assert!(atlas.icons().size() >= 512);
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    assert_eq!(built.quads.len(), 2);
+    let data = draw(&device, &queue, &mut renderer, &mut atlas, &built.quads);
+    let red = data.chunks(4).filter(|p| p[0] > 200 && p[1] < 50).count();
+    let green = data.chunks(4).filter(|p| p[1] > 200 && p[0] < 50).count();
+    assert!(red > 100, "1枚目が出ていない: {red}");
+    assert!(green > 100, "2枚目が出ていない: {green}");
+}

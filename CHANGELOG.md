@@ -4,6 +4,20 @@
 
 書き方は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に、版の付け方は [セマンティック バージョニング](https://semver.org/lang/ja/) に従います。
 
+## [0.1.1] - 2026-11-24
+
+`nekomoji-wgpu` を crates.io で公開する版です。コアは互換のまま、`nekomoji-wgpu` が使う項目を 1 つ足しました。
+
+### 追加
+
+- **`nekomoji-wgpu`: 最小の例 `examples/minimal`**。winit で窓を開き、画面の下のメッセージ窓に文字を出す。README の手順 1〜7 の順に書いてあり、クリック(Space・Enter)で進み、窓の大きさ・倍率の変更にも追従する。組み込みの出発点にする短い例(確認の道具は `viewer`)
+- **`nekomoji-wgpu`: README を段階的な使い方の説明書にした**。全体の流れ・役割分担の表・7 つの手順(準備・起動・窓・場面・毎フレーム・入力・画面の大きさの変更)・アイコン・カーソル・クリックした文字の判定・猫モード・セーブ・うまくいかないときの表。docs.rs のトップにも同じ内容が出る。断片をつなげた全体は `tests/guide.rs`(画面外へ描いて確かめる)
+- **`nekomoji-wgpu`: 入力待ちのカーソルをアイコンにできる**。`Placement::cursor_icon(id)`(すべての種類)・`cursor_icon_for(WaitKind, id)`(ページの途中・ページの終わり・終了で別々に)で、登録したアイコンを最後の文字の後ろ(縦書きは下)に描く。大きさは `cursor_size`(既定は字の高さの 0.8 倍)。猫モードでは肉球の代わりに描き、猫モードでなくても描く(決めなければ今までどおり、通常は何も描かず、猫モードは肉球)。位置と明滅(動きなしでは止める)は肉球と同じ。`examples/snapshot` に `--cursor-icon id` を足した
+- **`nekomoji-wgpu`: 窓の補助 `TextWindow`**。画面の矩形・余白・字の大きさから、`LayoutOptions` の幅・行数・書字方向、`Placement` の起点・行の間隔、シザー矩形を作る(`bottom`・`centered`・`scaled`・`contains` つき)。サーフェスの設定を作る `surface_config` と、アトラスの既定の大きさ `DEFAULT_ATLAS_SIZE` も足した
+- **`nekomoji-wgpu` を crates.io で公開**(`nekomoji` と同じ版 0.1.1。MSRV は wgpu 30 に合わせて 1.87)。`nekomoji-cli` は今までどおり出さない
+- **`nekomoji-wgpu`: 文中のアイコン(`[icon]`)の絵を描けるようにした**。`Atlas::icons_mut().insert(id, 幅, 高さ, RGBA)` で絵を登録すると(`IconSet`)、`build_quads`・`build_neko_quads` が字の枠に収めた絵の四角形を出し、`Renderer` が RGBA のテクスチャで描く。文字送り・揺れ・波・回転・不透明度・縦書きに文字と同じように従う。登録していない ID は何も描かず、`Built::missing_icons` で知らせる。`examples/snapshot`・`examples/viewer` に `--icon id=絵.png` を足した
+- **`nekomoji`**: `GlyphInstance::width`(送り幅)を足した。アイコンの絵を置く枠の大きさに使う
+
 ## [0.1.0] - 2026-11-23
 
 最初の公開版です。
@@ -33,4 +47,5 @@
 - wgpu による描画: 動的なグリフのアトラス、発光・縁取り・影、縦書き用の字形(`vert` / `vrt2`)、仮名のプロポーショナル詰め(`palt` / `vpal`。`FontSet::with_proportional`)、異体字の字形、フォントの代わりの連鎖、猫モードの肉球のカーソル、論理座標の重ね描きと座標の変換。四角形は `build_quads_into`・`build_neko_quads_into` で毎フレーム同じ `Built` に書ける
 - `viewer`・`snapshot` の例と、ブラウザのデモ(WebGPU。使えなければ WebGL2)
 
+[0.1.1]: https://github.com/lovelygenerator/nekomoji/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/lovelygenerator/nekomoji/releases/tag/v0.1.0

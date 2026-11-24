@@ -13,9 +13,11 @@
 //! - `layers`: 発光・縁取り・影の形を作り、後ろから順に積む
 //! - `paw`: 猫モードの肉球のカーソル
 //! - `glyph`: 字形をアトラスに置いて1つの四角形にする
+//! - `icon`: 文中のアイコン(`[icon]`)の絵を、字の枠に収めて1つの四角形にする
 
 mod build;
 mod glyph;
+mod icon;
 mod layers;
 mod lines;
 mod paw;
@@ -25,7 +27,7 @@ mod tests;
 mod vertical;
 
 pub use glyph::is_stretched_dash;
-pub use placement::{parse_color, Placement};
+pub use placement::{parse_color, CursorIcons, Placement};
 pub use vertical::{VERTICAL_BASELINE, VERTICAL_PUNCT_SHIFT, VERTICAL_SMALL_KANA_SHIFT};
 
 use bytemuck::{Pod, Zeroable};
@@ -34,7 +36,7 @@ use nekomoji::{DecorationInstance, GlyphInstance, Layout, Neko, Reveal};
 use crate::atlas::Atlas;
 use crate::font::FontSet;
 use build::build_page;
-use paw::push_paw;
+use paw::{push_cursor_icon, push_paw};
 
 /// 1文字ぶんの描画インスタンス。頂点バッファにそのまま詰める。
 #[repr(C)]
@@ -50,7 +52,7 @@ pub struct Quad {
     pub uv_max: [f32; 2],
     /// RGBA(不透明度込み)
     pub color: [f32; 4],
-    /// [回転(ラジアン、中心が軸), 予約(0)]
+    /// [回転(ラジアン、中心が軸), 種類(0 は字形のカバレッジ、1 はアイコンの絵)]
     pub extra: [f32; 2],
 }
 
@@ -64,6 +66,9 @@ pub struct Built {
     pub quads: Vec<Quad>,
     /// アトラスが満杯で描けなかった文字があるか
     pub overflow: bool,
+    /// 登録されていなくて描けなかったアイコンの ID(同じ ID は一度だけ。順は出てきた順)。
+    /// [`Atlas::icons_mut`](crate::atlas::Atlas::icons_mut) で絵を登録していないと入る
+    pub missing_icons: Vec<String>,
     /// 組み立て中の影(最後に `quads` の先頭へ移す)
     shadows: Vec<Quad>,
     /// 組み立て中の発光の光(最後に `quads` の先頭へ移す)
@@ -81,6 +86,7 @@ impl Built {
     fn reset(&mut self) {
         self.quads.clear();
         self.overflow = false;
+        self.missing_icons.clear();
         self.shadows.clear();
         self.halos.clear();
         self.outlines.clear();
@@ -115,6 +121,19 @@ pub fn build_quads_into(
     out: &mut Built,
 ) {
     build_page(layout, reveal, None, font, atlas, place, out);
+    // 入力待ちのカーソルは、アイコンを決めてあるときだけ(通常は何も描かない)
+    if let (Some(c), Some(page)) = (reveal.cursor(layout), layout.pages.get(reveal.page())) {
+        push_cursor_icon(
+            layout.writing,
+            page,
+            &c,
+            reveal.motion(),
+            font,
+            atlas,
+            place,
+            out,
+        );
+    }
 }
 
 /// [`build_quads`] に猫モードを足す。見えない猫に飛ばされた文字(とそのルビ)を動かし、
@@ -147,7 +166,8 @@ pub fn build_neko_quads_into(
 ) {
     build_page(layout, reveal, Some(neko), font, atlas, place, out);
     if let (Some(c), Some(page)) = (reveal.cursor(layout), layout.pages.get(reveal.page())) {
-        push_paw(
+        // アイコンを決めてあればそれを、無ければ肉球を描く
+        let icon = push_cursor_icon(
             layout.writing,
             page,
             &c,
@@ -157,5 +177,17 @@ pub fn build_neko_quads_into(
             place,
             out,
         );
+        if !icon {
+            push_paw(
+                layout.writing,
+                page,
+                &c,
+                reveal.motion(),
+                font,
+                atlas,
+                place,
+                out,
+            );
+        }
     }
 }

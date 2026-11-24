@@ -53,6 +53,17 @@ fn 本文とルビの文字を集める() {
 }
 
 #[test]
+fn アイコンの代わりの文字は集めない() {
+    let layout = Settings::default().build("[icon ok]決定").unwrap();
+    let set = layout_chars(&layout);
+    assert!(
+        !set.contains(&nekomoji::ICON_CHAR),
+        "字形を描かない文字が混ざっている"
+    );
+    assert!(set.contains(&'決') && set.contains(&'定'));
+}
+
+#[test]
 fn 変数の値があればその文字を集める() {
     let mut s = Settings::default();
     s.vars.insert("n".into(), "ミケ".into());

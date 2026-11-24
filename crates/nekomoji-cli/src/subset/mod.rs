@@ -104,6 +104,10 @@ pub fn layout_chars(layout: &Layout) -> BTreeSet<char> {
     let mut set = BTreeSet::new();
     for page in &layout.pages {
         for g in &page.glyphs {
+            // アイコン(`[icon]`)の絵は利用者が登録するもので、字形は描かない(U+FFFC は要らない)
+            if g.icon.is_some() {
+                continue;
+            }
             // 異体字セレクタなどの続きの文字も残す(cmap の異体字の表を持つフォントのため)
             set.insert(g.ch);
             set.extend(g.tail.chars());

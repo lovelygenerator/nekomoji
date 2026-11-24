@@ -21,7 +21,7 @@ mischievous cat — and leaves the drawing to you.
 |---|---|
 | [`crates/nekomoji`](crates/nekomoji) | The library. No dependencies. Markup parser → layout → reveal. See its [README](crates/nekomoji/README.md) |
 | `crates/nekomoji-cli` | CLI and REPL for checking layout and reveal in a terminal (`nekomoji` command). Not published |
-| `crates/nekomoji-wgpu` | wgpu rendering adapter: dynamic glyph atlas, vertical forms, proportional kana (`palt` / `vpal`), glow, outline and shadow. Includes the `viewer` and `snapshot` examples. Not published |
+| `crates/nekomoji-wgpu` | wgpu rendering adapter: dynamic glyph atlas, vertical forms, proportional kana (`palt` / `vpal`), glow, outline and shadow. Includes the `viewer` and `snapshot` examples. Published on crates.io as `nekomoji-wgpu` |
 | `examples/web-demo` | Browser demo (WASM, WebGPU with WebGL2 fallback) |
 
 Horizontal and vertical writing, rendered from `examples/showcase.neko` with the `snapshot` example:

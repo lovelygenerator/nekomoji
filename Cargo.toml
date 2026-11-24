@@ -3,7 +3,7 @@ members = ["crates/nekomoji", "crates/nekomoji-cli", "crates/nekomoji-wgpu", "ex
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 rust-version = "1.75"
@@ -11,4 +11,4 @@ repository = "https://github.com/lovelygenerator/nekomoji"
 homepage = "https://github.com/lovelygenerator/nekomoji"
 
 [workspace.dependencies]
-nekomoji = { path = "crates/nekomoji", version = "0.1.0" }
+nekomoji = { path = "crates/nekomoji", version = "0.1.1" }

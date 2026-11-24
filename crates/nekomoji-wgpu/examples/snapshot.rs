@@ -5,7 +5,7 @@
 //!     [--at 0.5,1,end] [--page 0] [--vertical] [--width 18] [--lines N] [--justify] \
 //!     [--no-tsume] [--wao 0.25] [--indent novel|dialogue|both] [--align start|center|end] [--px 36] [--size 800x320] [--index N] [--fallback <フォント>] [--neko] [--seed N] [--knock P] [--burst P] [--punch P] \
 //!     [--set 変数=値] [--grid] [--marks] [--box] [--motion full|reduced|off] \
-//!     [--outline] [--shadow] [--bg #rrggbb] [--palt]
+//!     [--outline] [--shadow] [--bg #rrggbb] [--palt] [--icon id=絵.png]... [--cursor-icon id]
 //! ```
 //!
 //! `--at` の時刻ごとに 1 コマ描き、縦に並べて 1 枚の PNG にする(既定は `end`)。
@@ -17,13 +17,16 @@
 //! `--marks` で名前付きの範囲(`[mark id]`)を薄く塗り、`--box` で文字に合わせたテキストボックスの枠を描く。
 //! `--outline`・`--shadow` で縁取り・影の既定(`Placement::outline`・`shadow`)を付け、`--bg` で背景の色を変える。
 //! `--palt` で仮名をプロポーショナルに詰める(`FontSet::with_proportional`。フォントの `palt`・`vpal` を使う)。
+//! `--icon id=絵.png`(繰り返し可)で、`[icon id]` の絵(PNG)を登録する。登録していない `[icon]` は緑の枠で場所だけ示す。
+//! `--cursor-icon id` で、入力待ちのカーソルを登録したアイコンにする(`Placement::cursor_icon`。猫モードでは肉球の代わり)。
 //! GPU が無ければソフトウェア実装(lavapipe など)を使う。PNG は依存を足さずに無圧縮で書く。
 
 mod common {
+    pub mod icons;
     pub mod sysfont;
 }
 
-use common::sysfont;
+use common::{icons, sysfont};
 use nekomoji::{
     parse, Align, Indent, Layout, LayoutOptions, Motion, Neko, NekoMode, Outline, Reveal,
     RevealOptions, Shadow, Vars, WaitKind, Writing,
@@ -59,6 +62,10 @@ struct Args {
     bg: [f32; 3],
     /// 仮名をプロポーショナルに詰めるか
     palt: bool,
+    /// `[icon]` の絵(`id=パス` の並び)
+    icons: Vec<String>,
+    /// 入力待ちのカーソルのアイコンの ID
+    cursor_icon: Option<String>,
 }
 
 fn usage() -> ! {
@@ -66,7 +73,7 @@ fn usage() -> ! {
         "使い方: snapshot [<フォント>] <.neko> -o <出力.png> [--at 0.5,1,end] [--page N] [--vertical] \
          [--width N] [--lines N] [--justify] [--no-tsume] [--wao 比] [--indent novel|dialogue|both] [--align start|center|end] [--px N] [--size WxH] [--index N] \
          [--fallback <フォント>] [--neko] [--seed N] [--knock P] [--burst P] [--punch P] [--set 変数=値] [--grid] [--marks] [--box] [--motion full|reduced|off] \
-         [--outline] [--shadow] [--bg #rrggbb] [--palt]"
+         [--outline] [--shadow] [--bg #rrggbb] [--palt] [--icon id=絵.png]... [--cursor-icon id]"
     );
     std::process::exit(2);
 }
@@ -94,6 +101,8 @@ fn parse_args() -> Args {
         outline: false,
         shadow: false,
         palt: false,
+        icons: Vec::new(),
+        cursor_icon: None,
         bg: [0.08, 0.08, 0.12],
     };
     let mut width_set = false;
@@ -127,6 +136,8 @@ fn parse_args() -> Args {
             "--outline" => a.outline = true,
             "--shadow" => a.shadow = true,
             "--palt" => a.palt = true,
+            "--icon" => a.icons.push(val()),
+            "--cursor-icon" => a.cursor_icon = Some(val()),
             "--bg" => a.bg = parse_color(&val()).unwrap_or_else(|| usage()),
             "--motion" => {
                 a.motion = match val().as_str() {
@@ -241,9 +252,12 @@ fn main() {
         std::process::exit(1)
     });
     let layout = Layout::build(&script, &font, &a.layout, &a.vars);
-    let place0 = Placement::default()
+    let mut place0 = Placement::default()
         .outline(a.outline.then(Outline::default))
         .shadow(a.shadow.then(Shadow::default));
+    if let Some(id) = &a.cursor_icon {
+        place0 = place0.cursor_icon(id.clone());
+    }
     let (w, h) = frame_size(&a, &layout, &place0);
     let place = place0.origin(match a.layout.writing {
         Writing::Horizontal => [MARGIN, MARGIN],
@@ -260,6 +274,10 @@ fn main() {
     let format = wgpu::TextureFormat::Rgba8Unorm;
     let mut renderer = Renderer::new(&device, format, ATLAS_SIZE);
     let mut atlas = Atlas::new(ATLAS_SIZE);
+    if let Err(e) = icons::register(&mut atlas, &a.icons) {
+        eprintln!("{e}");
+        std::process::exit(2);
+    }
 
     let mut sheet: Vec<u8> = Vec::new();
     for t in &a.at {
@@ -315,15 +333,21 @@ fn main() {
                 ));
             }
         }
-        // 文中のアイコン([icon])の絵は利用者が描くので、ここでは場所を枠で示す
+        // 文中のアイコン([icon])のうち、絵を登録していないものは場所を枠で示す
         let p = &layout.pages[page];
-        for (i, _) in p
+        let missing: Vec<usize> = p
             .glyphs
             .iter()
             .enumerate()
             .take(reveal.visible_count())
-            .filter(|(_, g)| g.icon.is_some())
-        {
+            .filter(|(_, g)| {
+                g.icon
+                    .as_deref()
+                    .is_some_and(|id| !atlas.icons().contains(id))
+            })
+            .map(|(i, _)| i)
+            .collect();
+        for i in missing {
             let rects = place.span_rects(&layout, page, font.base_px, &p.spans(i, 1));
             under.extend(build_rects(&mut atlas, &rects, [0.6, 0.9, 0.6, 0.9], true));
         }

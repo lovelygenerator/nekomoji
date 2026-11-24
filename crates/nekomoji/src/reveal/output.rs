@@ -34,6 +34,9 @@ pub struct GlyphInstance {
     pub tail: String,
     /// 行頭からの位置(字形を描き始める位置。[`crate::Glyph::shift`] を足した値)
     pub x: f32,
+    /// 送り幅([`crate::Glyph::width`] と同じ。縦書きでは行方向の送り)。
+    /// アイコン(`[icon]`)の絵を置く枠の、行の中の向きの長さに使う
+    pub width: f32,
     /// 行の番号
     pub line: usize,
     /// 大きさの倍率(上付き・下付きでは小さくした値)

@@ -1,0 +1,5 @@
+[icon ok] で決定、[icon heart] はお気に入り。
+[size 2][icon ok][/size]大きな字に合わせて、絵も大きくなる。
+[color red][icon heart][/color]文字の色には染まらず、絵のまま出る。
+[fade 1.5]少しずつ現れる[icon heart][icon heart][icon heart][/fade]
+[icon wide 3] ← 絵を登録していない [[icon]] は、何も描かれない

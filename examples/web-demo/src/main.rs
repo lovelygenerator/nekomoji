@@ -16,6 +16,8 @@
 // メッセージの組み立てはブラウザに依存しないので、ネイティブでもテストできる
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 mod editor;
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+mod icons;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
@@ -46,6 +48,7 @@ mod web {
     use web_time::Instant;
 
     use crate::editor;
+    use crate::icons;
 
     const ATLAS_SIZE: u32 = 2048;
     /// デモのシナリオ。`font.ttf` はこのファイルから `nekomoji subset` で作る
@@ -172,7 +175,7 @@ mod web {
             RevealOptions::default().motion(s.settings.motion),
         );
         s.neko = Neko::new(&s.layout, neko_mode(&s.settings));
-        editor::warnings(&s.layout, &s.font)
+        editor::warnings(&s.layout, &s.font, s.atlas.icons())
     }
 
     /// フォントを読み込み直して、今の台本を組み直す。読めなければ今のフォントのまま。
@@ -505,6 +508,10 @@ mod web {
         surface.configure(&device, &config);
         let renderer = Renderer::new(&device, config.format, ATLAS_SIZE);
 
+        // 文中のアイコン(`[icon ok]`・`[icon heart]`)の絵。字形のアトラスが作り直されても残る
+        let mut atlas = Atlas::new(ATLAS_SIZE);
+        icons::register(&mut atlas).map_err(|e| JsValue::from_str(&e))?;
+
         let place = make_place((w, h), dpr, &settings);
         // 左側の部品。テキストには最初にデモのシナリオを入れておく
         let textarea: web_sys::HtmlTextAreaElement = by_id(&document, "src")?.dyn_into()?;
@@ -527,7 +534,7 @@ mod web {
             layout,
             reveal,
             neko,
-            atlas: Atlas::new(ATLAS_SIZE),
+            atlas,
             place,
             last: Instant::now(),
             surface,

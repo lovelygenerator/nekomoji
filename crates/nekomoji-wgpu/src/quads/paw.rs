@@ -2,6 +2,7 @@
 
 use nekomoji::{Motion, Writing};
 
+use super::icon::push_icon_id;
 use super::placement::Placement;
 use super::{Built, Quad};
 use crate::atlas::{Atlas, Shape};
@@ -43,29 +44,18 @@ pub(super) fn paw_bitmap(px: u32) -> (u32, u32, Vec<u8>) {
     (n, n, data)
 }
 
-/// 入力待ちの肉球のカーソル。最後の文字の後ろ(縦書きでは下)に置き、ゆっくり明滅させる
-/// (動きなしでは明滅も上下もさせない)。
-#[allow(clippy::too_many_arguments)]
-pub(super) fn push_paw(
+/// カーソルの左上の位置(px)と不透明度。最後の文字の後ろ(縦書きでは下)に、一辺 `size` の
+/// 枠を置き、ゆっくり明滅させる(動きなしでは明滅も上下もさせない)。肉球とアイコンで共通。
+fn cursor_place(
     writing: Writing,
     page: &nekomoji::Page,
     c: &nekomoji::Cursor,
     motion: Motion,
     font: &FontSet,
-    atlas: &mut Atlas,
     place: &Placement,
-    out: &mut Built,
-) {
+    size: f32,
+) -> ([f32; 2], f32) {
     let base = font.base_px;
-    let size = (base * PAW).round().max(4.0);
-    let Some(e) = atlas.get_or_insert(('\u{1}'.into(), size as u32, false, Shape::Plain), || {
-        let (w, h, data) = paw_bitmap(size as u32);
-        (w, h, 0, 0, data)
-    }) else {
-        out.overflow = true;
-        return;
-    };
-    let tex = atlas.size() as f32;
     // 倍率 1 の字の枠の始まり(行で最も大きい字とそろえた位置)
     let across = place.glyph_across(writing, page, c.line, 1.0, font.ascent(1.0), base);
     let (pulse, bob) = if motion == Motion::Off {
@@ -92,6 +82,33 @@ pub(super) fn push_paw(
             ]
         }
     };
+    (pos, pulse)
+}
+
+/// 入力待ちの肉球のカーソル。最後の文字の後ろ(縦書きでは下)に置き、ゆっくり明滅させる
+/// (動きなしでは明滅も上下もさせない)。
+#[allow(clippy::too_many_arguments)]
+pub(super) fn push_paw(
+    writing: Writing,
+    page: &nekomoji::Page,
+    c: &nekomoji::Cursor,
+    motion: Motion,
+    font: &FontSet,
+    atlas: &mut Atlas,
+    place: &Placement,
+    out: &mut Built,
+) {
+    let base = font.base_px;
+    let size = (base * PAW).round().max(4.0);
+    let Some(e) = atlas.get_or_insert(('\u{1}'.into(), size as u32, false, Shape::Plain), || {
+        let (w, h, data) = paw_bitmap(size as u32);
+        (w, h, 0, 0, data)
+    }) else {
+        out.overflow = true;
+        return;
+    };
+    let tex = atlas.size() as f32;
+    let (pos, pulse) = cursor_place(writing, page, c, motion, font, place, size);
     let rgb = place.default_color;
     out.quads.push(Quad {
         pos,
@@ -101,4 +118,27 @@ pub(super) fn push_paw(
         color: [rgb[0], rgb[1], rgb[2], pulse],
         extra: [0.0, 0.0],
     });
+}
+
+/// 入力待ちのカーソルをアイコンの絵で描く([`Placement::cursor_icons`])。この種類にアイコンが
+/// 決めてあれば描いて(絵が未登録なら何も描かず `missing_icons` に覚えて)`true` を返し、
+/// 決めていなければ何もせず `false` を返す。位置と明滅は肉球と同じ。
+#[allow(clippy::too_many_arguments)]
+pub(super) fn push_cursor_icon(
+    writing: Writing,
+    page: &nekomoji::Page,
+    c: &nekomoji::Cursor,
+    motion: Motion,
+    font: &FontSet,
+    atlas: &Atlas,
+    place: &Placement,
+    out: &mut Built,
+) -> bool {
+    let Some(id) = place.cursor_icons.get(c.kind) else {
+        return false;
+    };
+    let size = font.base_px * place.cursor_size;
+    let (pos, pulse) = cursor_place(writing, page, c, motion, font, place, size);
+    push_icon_id(atlas, out, id, [pos[0], pos[1], size, size], pulse, 0.0);
+    true
 }

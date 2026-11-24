@@ -5,7 +5,7 @@
 //!
 //! ```sh
 //! cargo run -p nekomoji-wgpu --example viewer -- [<フォント>] [<.neko>] \
-//!     [--vertical] [--width N] [--lines N] [--px N] [--index N] [--fallback <フォント>] [--grid] [--no-neko] [--palt] [--set 変数=値]
+//!     [--vertical] [--width N] [--lines N] [--px N] [--index N] [--fallback <フォント>] [--grid] [--no-neko] [--palt] [--set 変数=値] [--icon id=絵.png]...
 //! ```
 //!
 //! フォント(拡張子 ttf / otf / ttc / otc)を省くと、リポジトリの `assets/fonts/` の Zen Maru Gothic を使う。
@@ -48,10 +48,11 @@
 //! `NEKOMOJI_FALLBACK` で代わりのフォント(パスの並び)。
 
 mod common {
+    pub mod icons;
     pub mod sysfont;
 }
 
-use common::sysfont;
+use common::{icons, sysfont};
 use nekomoji::{
     parse, Align, Glyph, Indent, Layout, LayoutOptions, Motion, Neko, NekoMode, Outline, Reveal,
     RevealOptions, RevealState, Script, Shadow, TextEvent, Vars, Writing,
@@ -435,14 +436,18 @@ impl App {
         let page = self.reveal.page();
         let base = self.font.base_px;
         let mut out = Vec::new();
-        // 文中のアイコン([icon])の絵は利用者が描くので、viewer では場所を枠で示す
+        // 文中のアイコン([icon])のうち、絵を登録していないものは場所を枠で示す
         let p = &self.layout.pages[page];
         let icons: Vec<[f32; 4]> = p
             .glyphs
             .iter()
             .enumerate()
             .take(self.reveal.visible_count())
-            .filter(|(_, g)| g.icon.is_some())
+            .filter(|(_, g)| {
+                g.icon
+                    .as_deref()
+                    .is_some_and(|id| !self.atlas.icons().contains(id))
+            })
             .flat_map(|(i, _)| {
                 self.place
                     .span_rects(&self.layout, page, base, &p.spans(i, 1))
@@ -834,7 +839,7 @@ fn modified(path: &PathBuf) -> Option<SystemTime> {
 fn usage() -> ! {
     eprintln!(
         "使い方: viewer [<フォント(ttf/otf/ttc)>] [<.neko>] [--vertical] [--width N] [--lines N] \
-         [--px N] [--index N] [--fallback <フォント>] [--grid] [--no-neko] [--palt] [--set 変数=値]"
+         [--px N] [--index N] [--fallback <フォント>] [--grid] [--no-neko] [--palt] [--set 変数=値] [--icon id=絵.png]..."
     );
     std::process::exit(2);
 }
@@ -884,6 +889,7 @@ fn main() {
     let mut font_index = sysfont::font_index_env();
     let mut width = None;
     let mut fallback_args = Vec::new();
+    let mut icon_args = Vec::new();
     let mut pos = Vec::new();
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -895,6 +901,7 @@ fn main() {
             "--px" => set.px = val().parse().unwrap_or_else(|_| usage()),
             "--index" => font_index = Some(val().parse().unwrap_or_else(|_| usage())),
             "--fallback" => fallback_args.push(val()),
+            "--icon" => icon_args.push(val()),
             "--grid" => set.grid = true,
             "--no-neko" => set.neko_on = false,
             "--palt" => set.palt = true,
@@ -952,6 +959,11 @@ fn main() {
     let reveal = Reveal::new(&layout, RevealOptions::default().motion(set.motion));
     let neko = Neko::new(&layout, set.neko.clone());
     eprintln!("{HELP}");
+    let mut atlas = Atlas::new(ATLAS_SIZE);
+    if let Err(e) = icons::register(&mut atlas, &icon_args) {
+        eprintln!("{e}");
+        std::process::exit(2);
+    }
 
     let event_loop = EventLoop::new().expect("イベントループ");
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -970,7 +982,7 @@ fn main() {
         layout,
         reveal,
         neko,
-        atlas: Atlas::new(ATLAS_SIZE),
+        atlas,
         place: Placement::default(),
         last: Instant::now(),
         mouse: None,

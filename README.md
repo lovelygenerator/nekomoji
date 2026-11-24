@@ -13,7 +13,7 @@
 
 - `crates/nekomoji`: コアのライブラリ(外部の依存なし)。パーサ → レイアウト → 文字送りの順に処理します
 - `crates/nekomoji-cli`: 動作を確かめるための CLI と REPL(`nekomoji` コマンド)
-- `crates/nekomoji-wgpu`: wgpu で描くためのアダプタ(動的なグリフのアトラス・肉球のカーソル・縦書き用の字形・仮名のプロポーショナル詰め・発光・縁取りと影)。依存は `wgpu`・`fontdue`・`bytemuck`・`ttf-parser`(GSUB の `vert` と GPOS の `palt`・`vpal` を読むのに使っています。fontdue と同じ版)
+- `crates/nekomoji-wgpu`: wgpu で描くためのアダプタ(crates.io の [`nekomoji-wgpu`](https://crates.io/crates/nekomoji-wgpu) で公開。動的なグリフのアトラス・肉球のカーソル・縦書き用の字形・仮名のプロポーショナル詰め・発光・縁取りと影)。依存は `wgpu`・`fontdue`・`bytemuck`・`ttf-parser`(GSUB の `vert` と GPOS の `palt`・`vpal` を読むのに使っています。fontdue と同じ版)
 
 マークアップの書き方は [docs/markup.md](docs/markup.md) にまとめています。
 
@@ -130,4 +130,7 @@ BLESS=1 cargo test -p nekomoji-cli --test golden   # 意図した変更のとき
 
 ## ライセンス
 
-MIT OR Apache-2.0 のどちらかを選んでお使いいただけます。
+次のどちらかを選んでお使いいただけます。
+
+- Apache License, Version 2.0([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license([LICENSE-MIT](LICENSE-MIT))

@@ -5,6 +5,7 @@ use nekomoji::{FontMetrics, GlyphInstance, Writing};
 
 use super::build::flight_of;
 use super::glyph::{entry, is_stretched_dash, quad, trim_dash_uv};
+use super::icon::push_icon;
 use super::layers::{add_glow, add_outline_shadow};
 use super::placement::{color_of, deco_of, Placement};
 use super::Built;
@@ -192,10 +193,6 @@ pub(super) fn build_vertical(
         right(line) - place.glyph_across(Writing::Vertical, page, line, size, 0.0, base)
     };
     for g in glyphs {
-        // アイコン(`[icon]`)の絵は利用者が描く。字形(.notdef)は描かない
-        if g.icon.is_some() {
-            continue;
-        }
         let px = base * g.size;
         // 上付き・下付きは周りの文字の枠の中央から、右(上付き)・左(下付き)へずらす
         let outer = base * g.baseline_size;
@@ -204,6 +201,17 @@ pub(super) fn build_vertical(
             + g.rise * base
             + g.offset.0 * base;
         let top = place.origin[1] + (g.x + g.offset.1) * base;
+        // アイコン(`[icon]`)は字形ではなく絵を、字の枠(字の大きさ × 送り幅)に収めて置く
+        if g.icon.is_some() {
+            push_icon(
+                atlas,
+                out,
+                g,
+                [left, top, px, g.width * base],
+                color_of(g, place)[3],
+            );
+            continue;
+        }
         let from = out.quads.len();
         let (outline, shadow) = deco_of(g, place);
         if let Some(t) = g.tcy {

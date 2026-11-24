@@ -606,3 +606,284 @@ fn 猫モードでも使い回すbuiltへの四角形は新しく作るものと
     // 文字が飛ばされている間も比べた
     assert!(knocked);
 }
+
+/// 一辺 `w`×`h` の単色の RGBA。
+fn solid(w: u32, h: u32, rgba: [u8; 4]) -> Vec<u8> {
+    rgba.iter()
+        .copied()
+        .cycle()
+        .take((w * h * 4) as usize)
+        .collect()
+}
+
+#[test]
+fn 登録したアイコンは字形ではなく絵の四角形になる() {
+    let Some(font) = load_font() else { return };
+    let (layout, mut reveal) = setup("[icon ok 2]", &font);
+    let mut atlas = Atlas::new(1024);
+    atlas
+        .icons_mut()
+        .insert("ok", 16, 8, &solid(16, 8, [255, 0, 0, 255]))
+        .unwrap();
+    reveal.advance(1.0);
+    let place = Placement::default().origin([10.0, 20.0]);
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    assert_eq!(built.quads.len(), 1);
+    assert!(built.missing_icons.is_empty());
+    let q = built.quads[0];
+    // 種類はアイコン。幅 2 の枠(64 × 32 px)に 2:1 の絵がちょうど収まる
+    assert_eq!(q.extra[1], 1.0);
+    assert_eq!(q.size, [64.0, 32.0]);
+    assert_eq!(q.pos[0], 10.0);
+    // 絵のアトラスの位置を指す(余白 1px の内側)
+    let tex = atlas.icons().size() as f32;
+    assert_eq!(q.uv_min, [1.0 / tex, 1.0 / tex]);
+    assert_eq!(q.uv_max, [17.0 / tex, 9.0 / tex]);
+    // 色は白(絵のまま)、不透明度は文字と同じ
+    assert_eq!(q.color, [1.0, 1.0, 1.0, 1.0]);
+}
+
+#[test]
+fn アイコンは縦横比を保って字の枠の中央に収める() {
+    let Some(font) = load_font() else { return };
+    // 幅 2(64 × 32 px の枠)に正方形の絵
+    let (layout, mut reveal) = setup("[icon sq 2]", &font);
+    let mut atlas = Atlas::new(1024);
+    atlas
+        .icons_mut()
+        .insert("sq", 8, 8, &solid(8, 8, [0, 255, 0, 255]))
+        .unwrap();
+    reveal.advance(1.0);
+    let place = Placement::default().origin([0.0, 0.0]);
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    let q = built.quads[0];
+    assert_eq!(q.size, [32.0, 32.0]);
+    // 枠の横の中央(64 - 32) / 2
+    assert_eq!(q.pos[0], 16.0);
+}
+
+#[test]
+fn 縦書きのアイコンは行方向が幅_行と直角が字の大きさ() {
+    let Some(font) = load_font() else { return };
+    let script = parse("[icon ok 2]").unwrap();
+    let opts = LayoutOptions::default().vertical();
+    let layout = Layout::build(&script, &font, &opts, &Vars::new());
+    let mut reveal = Reveal::new(&layout, RevealOptions::default());
+    reveal.advance(1.0);
+    let mut atlas = Atlas::new(1024);
+    // 1:2(縦長)の絵が、32 × 64 px の枠にちょうど収まる
+    atlas
+        .icons_mut()
+        .insert("ok", 8, 16, &solid(8, 16, [0, 0, 255, 255]))
+        .unwrap();
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &Placement::default());
+    assert_eq!(built.quads.len(), 1);
+    assert_eq!(built.quads[0].size, [32.0, 64.0]);
+    assert_eq!(built.quads[0].extra[1], 1.0);
+}
+
+#[test]
+fn 登録していないアイコンは描かず_idを一度だけ知らせる() {
+    let Some(font) = load_font() else { return };
+    let (layout, mut reveal) = setup("[icon a][icon a][icon b]あ", &font);
+    let mut atlas = Atlas::new(1024);
+    reveal.advance(1.0);
+    let mut built = Built::default();
+    build_quads_into(
+        &layout,
+        &reveal,
+        &font,
+        &mut atlas,
+        &Placement::default(),
+        &mut built,
+    );
+    // 字形の「あ」だけが四角形になる
+    assert_eq!(built.quads.len(), 1);
+    assert_eq!(built.quads[0].extra[1], 0.0);
+    assert_eq!(built.missing_icons, vec!["a".to_string(), "b".to_string()]);
+    // 登録して作り直せば、知らせは消える
+    for id in ["a", "b"] {
+        atlas
+            .icons_mut()
+            .insert(id, 4, 4, &solid(4, 4, [255; 4]))
+            .unwrap();
+    }
+    build_quads_into(
+        &layout,
+        &reveal,
+        &font,
+        &mut atlas,
+        &Placement::default(),
+        &mut built,
+    );
+    assert!(built.missing_icons.is_empty());
+    assert_eq!(built.quads.len(), 4);
+}
+
+#[test]
+fn アイコンの絵は字形のアトラスが作り直されても残る() {
+    let mut atlas = Atlas::new(64);
+    atlas
+        .icons_mut()
+        .insert("ok", 4, 4, &solid(4, 4, [255; 4]))
+        .unwrap();
+    atlas.clear();
+    assert!(atlas.make_room(64) || atlas.icons().contains("ok"));
+    assert!(atlas.icons().contains("ok"));
+}
+
+#[test]
+fn 文字送りの途中ではアイコンも出たものだけ描く() {
+    let Some(font) = load_font() else { return };
+    let (layout, mut reveal) = setup("あ[icon ok]い", &font);
+    let mut atlas = Atlas::new(1024);
+    atlas
+        .icons_mut()
+        .insert("ok", 4, 4, &solid(4, 4, [255; 4]))
+        .unwrap();
+    reveal.advance(0.0); // 1文字目だけ
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &Placement::default());
+    assert_eq!(built.quads.len(), 1);
+    reveal.advance(0.1); // アイコンまで
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &Placement::default());
+    assert_eq!(built.quads.len(), 2);
+    assert_eq!(built.quads[1].extra[1], 1.0);
+}
+
+fn arrow(atlas: &mut Atlas, id: &str) {
+    atlas
+        .icons_mut()
+        .insert(id, 8, 8, &solid(8, 8, [255, 255, 255, 255]))
+        .unwrap();
+}
+
+#[test]
+fn アイコンを決めれば_猫モードでなくても入力待ちのカーソルを最後に積む() {
+    let Some(font) = load_font() else { return };
+    let (layout, mut reveal) = setup("あい", &font);
+    reveal.advance(5.0);
+    let mut atlas = Atlas::new(1024);
+    arrow(&mut atlas, "next");
+    let place = Placement::default().cursor_icon("next");
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    // あ・い・カーソル
+    assert_eq!(built.quads.len(), 3);
+    let (last_glyph, cursor) = (built.quads[1], built.quads[2]);
+    assert_eq!(cursor.extra[1], 1.0, "アイコンの絵");
+    // 一辺は字の高さ(32px)の 0.8 倍で、最後の文字より右
+    assert_eq!(cursor.size, [25.6, 25.6]);
+    assert!(cursor.pos[0] > last_glyph.pos[0] + 16.0, "{cursor:?}");
+    assert!(built.missing_icons.is_empty());
+}
+
+#[test]
+fn アイコンの大きさは_cursor_size_で変えられる() {
+    let Some(font) = load_font() else { return };
+    let (layout, mut reveal) = setup("あ", &font);
+    reveal.advance(5.0);
+    let mut atlas = Atlas::new(1024);
+    arrow(&mut atlas, "next");
+    let place = Placement::default().cursor_icon("next").cursor_size(0.5);
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    assert_eq!(built.quads.last().unwrap().size, [16.0, 16.0]);
+}
+
+#[test]
+fn 動きなしではアイコンのカーソルは明滅も上下もしない() {
+    let Some(font) = load_font() else { return };
+    let script = parse("あ").unwrap();
+    let layout = Layout::build(&script, &font, &LayoutOptions::default(), &Vars::new());
+    let mut reveal = Reveal::new(
+        &layout,
+        RevealOptions::default().motion(nekomoji::Motion::Off),
+    );
+    let mut atlas = Atlas::new(1024);
+    arrow(&mut atlas, "next");
+    let place = Placement::default().cursor_icon("next");
+    let mut ys = Vec::new();
+    for _ in 0..3 {
+        reveal.advance(2.0);
+        let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+        let q = *built.quads.last().unwrap();
+        assert_eq!(q.color[3], 0.9);
+        ys.push(q.pos[1]);
+    }
+    assert!(ys.windows(2).all(|w| w[0] == w[1]), "{ys:?}");
+}
+
+#[test]
+fn 入力待ちの種類ごとにアイコンを変えられ_決めていない種類は出ない() {
+    let Some(font) = load_font() else { return };
+    let (layout, mut reveal) = setup("あ[l]い", &font);
+    let mut atlas = Atlas::new(1024);
+    arrow(&mut atlas, "mid");
+    // ページの途中(`[l]`)だけアイコン
+    let place =
+        Placement::default().cursor_icon_for(nekomoji::WaitKind::Click, Some("mid".to_string()));
+    reveal.advance(1.0);
+    assert_eq!(reveal.wait_kind(), Some(nekomoji::WaitKind::Click));
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    assert_eq!(built.quads.len(), 2, "あ + アイコン");
+    assert_eq!(built.quads[1].extra[1], 1.0);
+    // 最後まで出し終えた(End)ときは、決めていないので出ない
+    reveal.proceed();
+    reveal.advance(5.0);
+    assert_eq!(reveal.wait_kind(), Some(nekomoji::WaitKind::End));
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    assert_eq!(built.quads.len(), 2, "あ・い だけ");
+    assert!(built.quads.iter().all(|q| q.extra[1] == 0.0));
+}
+
+#[test]
+fn 猫モードでもアイコンを決めれば肉球の代わりに描く() {
+    let Some(font) = load_font() else { return };
+    let (layout, mut reveal) = setup("あい", &font);
+    reveal.advance(5.0);
+    let neko = Neko::new(&layout, NekoMode::default().knock_chance(0.0));
+    let mut atlas = Atlas::new(1024);
+    arrow(&mut atlas, "next");
+    // アイコンなし: 肉球(字形のカバレッジの四角形)
+    let paw = build_neko_quads(
+        &layout,
+        &reveal,
+        &neko,
+        &font,
+        &mut atlas,
+        &Placement::default(),
+    );
+    assert_eq!(paw.quads.len(), 3);
+    assert_eq!(paw.quads[2].extra[1], 0.0);
+    // アイコンあり: 最後の 1 つがアイコンで、肉球は積まない
+    let place = Placement::default().cursor_icon("next");
+    let icon = build_neko_quads(&layout, &reveal, &neko, &font, &mut atlas, &place);
+    assert_eq!(icon.quads.len(), 3);
+    assert_eq!(icon.quads[2].extra[1], 1.0);
+}
+
+#[test]
+fn 絵を登録していないカーソルのアイコンは描かず_idを知らせる() {
+    let Some(font) = load_font() else { return };
+    let (layout, mut reveal) = setup("あい", &font);
+    reveal.advance(5.0);
+    let mut atlas = Atlas::new(1024);
+    let place = Placement::default().cursor_icon("nope");
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    assert_eq!(built.quads.len(), 2);
+    assert_eq!(built.missing_icons, vec!["nope".to_string()]);
+}
+
+#[test]
+fn 縦書きのアイコンのカーソルは最後の文字の下に出る() {
+    let Some(font) = load_font() else { return };
+    let (layout, reveal) = setup_vertical("あい", &font);
+    let mut atlas = Atlas::new(1024);
+    arrow(&mut atlas, "next");
+    let place = Placement::default()
+        .origin([200.0, 20.0])
+        .cursor_icon("next");
+    let built = build_quads(&layout, &reveal, &font, &mut atlas, &place);
+    assert_eq!(built.quads.len(), 3);
+    let (last_glyph, cursor) = (built.quads[1], built.quads[2]);
+    assert_eq!(cursor.extra[1], 1.0);
+    assert!(cursor.pos[1] > last_glyph.pos[1] + 16.0, "{cursor:?}");
+}

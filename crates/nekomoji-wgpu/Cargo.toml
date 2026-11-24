@@ -5,9 +5,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/nekomoji-wgpu"
+readme = "README.md"
+keywords = ["japanese", "wgpu", "text-rendering", "gamedev", "nekomoji"]
+categories = ["rendering", "game-development", "graphics"]
 # wgpu 30 の要求に合わせる(コアの MSRV 1.75 とは別)
 rust-version = "1.87"
-publish = false
+# 同梱しない: tests と examples は、リポジトリのフォントや絵(assets/・examples/)を使うため
+exclude = ["tests/*", "examples/*"]
 
 [dependencies]
 nekomoji = { workspace = true }
@@ -20,3 +26,5 @@ ttf-parser = { version = "0.25", default-features = false, features = ["std", "o
 [dev-dependencies]
 winit = "0.30"
 pollster = "1"
+# examples(snapshot・viewer)の `--icon` で PNG の絵を読むだけに使う(ライブラリには入らない)
+png = "0.17"

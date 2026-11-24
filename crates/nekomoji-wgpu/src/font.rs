@@ -142,6 +142,7 @@ pub struct FontGlyph {
 
 /// ラスタライズ結果(カバレッジ 8bit)。
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Raster {
     /// 幅(px)
     pub width: u32,

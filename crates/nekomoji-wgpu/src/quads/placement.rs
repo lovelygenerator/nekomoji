@@ -1,6 +1,32 @@
 //! 画面への置き方と、文字の色・縁取り・影の決め方。
 
-use nekomoji::{GlyphInstance, Outline, Page, Shadow, Writing};
+use nekomoji::{GlyphInstance, Outline, Page, Shadow, WaitKind, Writing};
+
+/// 入力待ちのカーソルに使うアイコンの ID(入力待ちの種類ごと)。
+///
+/// 絵は [`Atlas::icons_mut`](crate::atlas::Atlas::icons_mut) に登録しておく(`[icon]` と同じ)。
+/// `None` の種類は、アイコンのカーソルを出さない(猫モードでは肉球になる)。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct CursorIcons {
+    /// ページの途中の入力待ち(`[l]`)
+    pub click: Option<String>,
+    /// ページの終わりの入力待ち(`[p]`・自動改ページ)
+    pub page: Option<String>,
+    /// すべて表示し終えたとき
+    pub end: Option<String>,
+}
+
+impl CursorIcons {
+    /// 入力待ちの種類 `kind` のアイコンの ID。
+    pub fn get(&self, kind: WaitKind) -> Option<&str> {
+        match kind {
+            WaitKind::Click => self.click.as_deref(),
+            WaitKind::End => self.end.as_deref(),
+            _ => self.page.as_deref(),
+        }
+    }
+}
 
 /// 配置の設定。
 #[derive(Debug, Clone)]
@@ -22,9 +48,46 @@ pub struct Placement {
     pub outline: Option<Outline>,
     /// 影の既定。`[shadow]` で囲んでいない文字(とそのルビ・圏点)に付ける。`None` なら付けない
     pub shadow: Option<Shadow>,
+    /// 入力待ちのカーソルに使うアイコン(種類ごと)。既定はどれも `None`
+    /// (通常は何も描かず、猫モードでは肉球)。絵が登録されていなければ何も描かず、
+    /// [`Built::missing_icons`](super::Built::missing_icons) に知らせる
+    pub cursor_icons: CursorIcons,
+    /// アイコンのカーソルの大きさ(倍率 1.0 の文字の高さに対する比。正方形の枠に絵を収める)
+    pub cursor_size: f32,
 }
 
 impl Placement {
+    /// 入力待ちのすべての種類のカーソルを、アイコン `id` にする([`Placement::cursor_icons`])。
+    #[must_use]
+    pub fn cursor_icon(mut self, id: impl Into<String>) -> Self {
+        let id = id.into();
+        self.cursor_icons = CursorIcons {
+            click: Some(id.clone()),
+            page: Some(id.clone()),
+            end: Some(id),
+        };
+        self
+    }
+
+    /// 入力待ちの種類 `kind` のカーソルだけをアイコンにする(`None` で戻す)。
+    /// 「ページの途中は ▼、最後は ■」のように種類ごとに変えられる。
+    #[must_use]
+    pub fn cursor_icon_for(mut self, kind: WaitKind, id: Option<String>) -> Self {
+        match kind {
+            WaitKind::Click => self.cursor_icons.click = id,
+            WaitKind::End => self.cursor_icons.end = id,
+            _ => self.cursor_icons.page = id,
+        }
+        self
+    }
+
+    /// アイコンのカーソルの大きさ([`Placement::cursor_size`])。
+    #[must_use]
+    pub fn cursor_size(mut self, value: f32) -> Self {
+        self.cursor_size = value;
+        self
+    }
+
     /// 本文の左上(縦書きでは右上)の位置([`Placement::origin`])。
     #[must_use]
     pub fn origin(mut self, value: [f32; 2]) -> Self {
@@ -145,6 +208,8 @@ impl Default for Placement {
             default_color: [1.0, 1.0, 1.0],
             outline: None,
             shadow: None,
+            cursor_icons: CursorIcons::default(),
+            cursor_size: 0.8,
         }
     }
 }

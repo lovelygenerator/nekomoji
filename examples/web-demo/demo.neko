@@ -70,6 +70,14 @@ x[sup]2[/sup] は [[sup]]、H[sub]2[/sub]O は [[sub]]
 [align center]start / center / end の 3 種類[/align]
 [align end]これは end(行末揃え)です[/align]
 [p]
+[b]■ アイコン[/b]
+
+[[icon id 幅]]
+文中に絵を入れます。ok と heart が使えます。[l]
+[icon ok] で決定、[icon heart] はお気に入り。[l]
+[size 2][icon ok][/size]字に合わせて大きくなります。[l]
+[fade 2][icon heart][icon heart][icon heart][/fade] 文字送りで現れます。
+[p]
 [b]■ ゲームとの連携[/b]
 
 次のタグは、デモでは音も絵も出ません。
@@ -77,16 +85,11 @@ x[sup]2[/sup] は [[sup]]、H[sub]2[/sub]O は [[sub]]
 
 [[mark id]]…[[/mark]]
 見た目は変えず、範囲の ID を渡します。用語の説明やクリックできる語に使います。
-[p]
-[b]■ ゲームとの連携 2[/b]
-
-[[icon id 幅]]
-文中にボタンの絵などを入れる場所を空けます。
 
 [[var 名前]]
 ゲームが持つ値(主人公の名前など)に置き換えます。
 [p]
-[b]■ ゲームとの連携 3[/b]
+[b]■ ゲームとの連携 2[/b]
 
 [[voice id]] [[se id]] [[event 名前 引数]]
 ボイス・効果音・利用者定義のイベントを、ゲーム側へ知らせます。

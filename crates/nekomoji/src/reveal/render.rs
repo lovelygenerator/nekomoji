@@ -76,6 +76,7 @@ impl Reveal {
                 ch: g.ch,
                 tail: g.tail.clone(),
                 x: g.x + g.shift,
+                width: g.width,
                 line: g.line,
                 size: style.glyph_size(),
                 baseline_size: style.size,

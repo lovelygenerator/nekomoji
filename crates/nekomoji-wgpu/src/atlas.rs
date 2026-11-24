@@ -5,9 +5,11 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::font::Ch;
+use crate::icon::IconSet;
 
 /// アトラス内の1文字。
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct Entry {
     /// アトラス内の左端(px)
     pub x: u32,
@@ -25,6 +27,7 @@ pub struct Entry {
 
 /// GPU へ転送する矩形。
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Upload {
     /// 転送先の左端(px)
     pub x: u32,
@@ -64,6 +67,8 @@ pub struct Atlas {
     shelf_y: u32,
     shelf_h: u32,
     cursor_x: u32,
+    /// 文中のアイコン(`[icon]`)の絵。字形と違い利用者が登録したものなので、`clear` でも消さない
+    icons: IconSet,
 }
 
 /// 置けない字形の代わりの、大きさ 0 の字形(空白と同じく何も描かない)。
@@ -94,7 +99,19 @@ impl Atlas {
             shelf_y: 0,
             shelf_h: 0,
             cursor_x: 0,
+            icons: IconSet::new(),
         }
+    }
+
+    /// 文中のアイコン(`[icon id]`)の絵の置き場。
+    pub fn icons(&self) -> &IconSet {
+        &self.icons
+    }
+
+    /// 文中のアイコンの絵を登録する(`atlas.icons_mut().insert("ok", w, h, &rgba)`)。
+    /// 登録した絵は、字形のアトラスが満杯になって作り直されても残る。
+    pub fn icons_mut(&mut self) -> &mut IconSet {
+        &mut self.icons
     }
 
     /// 一辺の大きさ(px)。

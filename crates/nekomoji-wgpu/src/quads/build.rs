@@ -3,6 +3,7 @@
 use nekomoji::{Layout, Neko, Reveal, Writing};
 
 use super::glyph::{entry, is_stretched_dash, trim_dash_uv};
+use super::icon::push_icon;
 use super::layers::{add_glow, add_outline_shadow, finish_layers};
 use super::lines::push_lines;
 use super::placement::{color_of, deco_of, Placement};
@@ -109,10 +110,6 @@ fn build_horizontal(
     };
 
     for g in glyphs {
-        // アイコン(`[icon]`)の絵は利用者が描く。字形(.notdef)は描かない
-        if g.icon.is_some() {
-            continue;
-        }
         let px = base * g.size;
         let x = place.origin[0] + (g.x + g.offset.0) * base;
         // 上付き・下付きは周りの文字(baseline_size)のベースラインから rise だけずらす
@@ -122,6 +119,17 @@ fn build_horizontal(
             0.0
         };
         let top = frame_top(g.line, g.baseline_size) + g.offset.1 * base + shift;
+        // アイコン(`[icon]`)は字形ではなく絵を、字の枠(送り幅 × 字の大きさ)に収めて置く
+        if g.icon.is_some() {
+            push_icon(
+                atlas,
+                out,
+                g,
+                [x, top, g.width * base, px],
+                color_of(g, place)[3],
+            );
+            continue;
+        }
         let from = out.quads.len();
         push(
             Ch::new(g.ch, &g.tail),
